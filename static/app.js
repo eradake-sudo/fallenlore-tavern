@@ -1,6 +1,8 @@
 const socket = io();
 const store = {
   you: JSON.parse(localStorage.getItem("fallenlore-you") || "null"),
+  chronicle: [],
+  chapterId: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -62,10 +64,48 @@ function paintLog(messages) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+function paintBook(list, stayOnId) {
+  store.chronicle = list || [];
+  const toc = $("book-toc");
+  toc.innerHTML = "";
+  if (!store.chronicle.length) {
+    $("book-title").textContent = "Empty binding";
+    $("book-meta").textContent = "";
+    $("book-body").textContent = "No pages yet. Play a scene, then write last session into the book.";
+    return;
+  }
+  store.chronicle.forEach((ch, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = ch.title || `Leaf ${i + 1}`;
+    b.addEventListener("click", () => showChapter(ch.id));
+    toc.appendChild(b);
+  });
+  const pick = stayOnId && store.chronicle.find((c) => c.id === stayOnId)
+    ? stayOnId
+    : store.chronicle[store.chronicle.length - 1].id;
+  showChapter(pick);
+}
+
+function showChapter(id) {
+  const ch = store.chronicle.find((c) => c.id === id) || store.chronicle[0];
+  if (!ch) return;
+  store.chapterId = ch.id;
+  $("book-title").textContent = ch.title || "Untitled leaf";
+  $("book-meta").textContent = ch.ts ? ch.ts.replace("T", " ").replace("+00:00", " UTC") : "";
+  $("book-body").textContent = ch.body || "";
+  [...$("book-toc").children].forEach((btn) => {
+    btn.classList.toggle("on", btn.textContent === ch.title);
+  });
+}
+
 socket.on("state", (state) => {
   paintState(state);
   if (state.messages) paintLog(state.messages);
+  if (state.chronicle) paintBook(state.chronicle, store.chapterId);
 });
+
+socket.on("chronicle", (list) => paintBook(list, store.chapterId));
 
 socket.on("message", (m) => {
   logEl.appendChild(renderMessage(m));
@@ -120,6 +160,20 @@ $("summon").addEventListener("click", () => {
 $("toggle-panel").addEventListener("click", () => {
   $("panel").classList.toggle("open");
 });
+
+$("open-book").addEventListener("click", () => {
+  $("book").classList.remove("hidden");
+  if (store.chronicle.length) showChapter(store.chapterId || store.chronicle.at(-1).id);
+});
+$("close-book").addEventListener("click", () => $("book").classList.add("hidden"));
+
+function writeChapter(focus) {
+  if (!store.you) return;
+  $("book").classList.add("hidden");
+  socket.emit("write_chapter", { ...store.you, focus });
+}
+$("write-session").addEventListener("click", () => writeChapter("last session"));
+$("write-campaign").addEventListener("click", () => writeChapter("the whole campaign so far"));
 
 $("text").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
