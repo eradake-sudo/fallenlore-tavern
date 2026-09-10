@@ -38,7 +38,15 @@ PORT = int(os.getenv("PORT", "5000"))
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "fallenlore-keep-this-local")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="eventlet",
+    ping_interval=20,
+    ping_timeout=60,
+    logger=False,
+    engineio_logger=False,
+)
 
 SAVE_LOCK = threading.Lock()
 DICE_RE = re.compile(
@@ -302,34 +310,42 @@ def call_grok(trigger: str) -> str:
 
 
 def dm_reply(trigger: str, save_chapter: bool = False, chapter_title: str = "") -> None:
+    """Run the API call on a real thread so chat is not frozen while Grok thinks."""
     socketio.emit("dm_thinking", {"thinking": True})
-    if save_chapter:
-        trigger = (
-            "Write a chronicle chapter for the campaign bible. "
-            "This will be read later like a book, not played as a live scene. "
-            "Do not ask 'what do you do?'. Do not start a new adventure. "
-            "First line exactly: TITLE: <short chapter title>\n"
-            "Then BODY: and 2–6 short paragraphs covering what happened, "
-            "who is angry, where the party is, and the open hook.\n"
-            f"Focus: {trigger}"
-        )
-    text = call_grok(trigger)
-    apply_status_line(text)
-    msg = add_message("dm", "DM", text, character="Dungeon Master")
-    socketio.emit("message", msg)
-    socketio.emit("state", public_state())
-    if save_chapter:
-        title, body = parse_chapter(text, chapter_title or "Session leaf")
-        chapter = add_chapter(title, body)
-        socketio.emit("chronicle", public_state()["chronicle"])
-        note = add_message(
-            "system",
-            "Tavern",
-            f"A page is bound into the chronicle: {chapter['title']}",
-        )
-        socketio.emit("message", note)
-        socketio.emit("state", public_state())
-    socketio.emit("dm_thinking", {"thinking": False})
+
+    def work() -> None:
+        try:
+            local_trigger = trigger
+            if save_chapter:
+                local_trigger = (
+                    "Write a chronicle chapter for the campaign bible. "
+                    "This will be read later like a book, not played as a live scene. "
+                    "Do not ask 'what do you do?'. Do not start a new adventure. "
+                    "First line exactly: TITLE: <short chapter title>\n"
+                    "Then BODY: and 2–6 short paragraphs covering what happened, "
+                    "who is angry, where the party is, and the open hook.\n"
+                    f"Focus: {trigger}"
+                )
+            text = call_grok(local_trigger)
+            apply_status_line(text)
+            msg = add_message("dm", "DM", text, character="Dungeon Master")
+            socketio.emit("message", msg)
+            socketio.emit("state", public_state())
+            if save_chapter:
+                title, body = parse_chapter(text, chapter_title or "Session leaf")
+                chapter = add_chapter(title, body)
+                socketio.emit("chronicle", public_state()["chronicle"])
+                note = add_message(
+                    "system",
+                    "Tavern",
+                    f"A page is bound into the chronicle: {chapter['title']}",
+                )
+                socketio.emit("message", note)
+                socketio.emit("state", public_state())
+        finally:
+            socketio.emit("dm_thinking", {"thinking": False})
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 @app.route("/")
