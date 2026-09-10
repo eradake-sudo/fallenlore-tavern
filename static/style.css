@@ -71,7 +71,7 @@ button {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(#140e0cea, #140e0cd4 40%, #140e0cf0);
+  background: linear-gradient(#140e0c22, #140e0c14 48%, #140e0c66);
   pointer-events: none;
   z-index: 0;
 }
@@ -102,7 +102,7 @@ button {
   gap: 1rem;
   padding: .7rem 1rem;
   border-bottom: 1px solid var(--line);
-  background: #120c0a;
+  background: #120c0a99;
 }
 .top h1 { font-size: 1.05rem; }
 .top-actions { display: flex; gap: .4rem; flex-shrink: 0; }
@@ -138,7 +138,7 @@ button {
 .msg {
   max-width: 42rem;
   padding: .7rem .85rem;
-  background: #1a120f;
+  background: #1a120fbb;
   border-left: 3px solid var(--line);
 }
 .msg.dm { border-left-color: var(--gold); background: #20160f; }
