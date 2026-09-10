@@ -172,6 +172,21 @@ def add_chapter(title: str, body: str) -> dict:
     return chapter
 
 
+def apply_status_line(text: str) -> None:
+    m = re.search(r"(?im)^STATUS:\s*(.+)$", text)
+    if not m:
+        return
+    parts = [p.strip() for p in re.split(r"—|–|-", m.group(1)) if p.strip()]
+    with SAVE_LOCK:
+        if parts:
+            STATE["campaign"]["location"] = parts[0][:120]
+        if len(parts) > 1:
+            STATE["campaign"]["time"] = parts[1][:80]
+        if len(parts) > 2:
+            STATE["campaign"]["recap"] = parts[2][:400]
+        save_state(STATE)
+
+
 def parse_chapter(text: str, fallback_title: str) -> tuple[str, str]:
     title = fallback_title
     body = text.strip()
@@ -299,8 +314,10 @@ def dm_reply(trigger: str, save_chapter: bool = False, chapter_title: str = "") 
             f"Focus: {trigger}"
         )
     text = call_grok(trigger)
+    apply_status_line(text)
     msg = add_message("dm", "DM", text, character="Dungeon Master")
     socketio.emit("message", msg)
+    socketio.emit("state", public_state())
     if save_chapter:
         title, body = parse_chapter(text, chapter_title or "Session leaf")
         chapter = add_chapter(title, body)
