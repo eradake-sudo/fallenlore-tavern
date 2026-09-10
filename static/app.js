@@ -66,13 +66,26 @@ function paintState(state) {
   $("api-hint").textContent = state.has_api_key
     ? "Grok is seated as DM."
     : "No API key yet — chat and dice work; DM replies will ask for a key.";
-  const ul = $("party");
-  ul.innerHTML = "";
-  (state.players || []).forEach((p) => {
-    const li = document.createElement("li");
-    li.innerHTML = `<span class="dot ${p.online ? "on" : ""}"></span><strong>${escapeHtml(p.character)}</strong> <span style="color:var(--muted)">(${escapeHtml(p.name)}${p.cls ? " · " + escapeHtml(p.cls) : ""})</span>`;
-    ul.appendChild(li);
-  });
+  const players = state.players || [];
+  const paintPeople = (ul) => {
+    if (!ul) return;
+    ul.innerHTML = "";
+    if (!players.length) {
+      const li = document.createElement("li");
+      li.textContent = "Empty benches.";
+      ul.appendChild(li);
+      return;
+    }
+    [...players]
+      .sort((a, b) => Number(b.online) - Number(a.online))
+      .forEach((p) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="dot ${p.online ? "on" : ""}"></span><strong>${escapeHtml(p.character)}</strong> <span style="color:var(--muted)">(${escapeHtml(p.name)}${p.cls ? " · " + escapeHtml(p.cls) : ""})</span> <em>${p.online ? "live" : "away"}</em>`;
+        ul.appendChild(li);
+      });
+  };
+  paintPeople($("party"));
+  paintPeople($("seated-list"));
 }
 
 function paintLog(messages) {
@@ -177,6 +190,9 @@ $("summon").addEventListener("click", () => {
 $("toggle-panel").addEventListener("click", () => {
   $("panel").classList.toggle("open");
 });
+
+$("open-seated").addEventListener("click", () => $("seated").classList.remove("hidden"));
+$("close-seated").addEventListener("click", () => $("seated").classList.add("hidden"));
 
 $("open-book").addEventListener("click", () => {
   $("book").classList.remove("hidden");
