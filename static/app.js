@@ -39,10 +39,27 @@ function renderMessage(m) {
   return el;
 }
 
+const ROOMS = [
+  { id: "chapel", flicker: true, match: /chapel|cathedral|church|abbey|sanctum|blackveil/i },
+  { id: "tavern", flicker: true, match: /tavern|inn|bar|pub|hearth/i },
+  { id: "dungeon", flicker: true, match: /dungeon|crypt|cellar|cave|prison|under/i },
+  { id: "camp", flicker: true, match: /camp|firelight|watch/i },
+  { id: "road", flicker: false, match: /road|path|vale|ashford|forest|wood|march|trail/i },
+];
+
+function setRoom(location) {
+  const app = $("app");
+  const hit = ROOMS.find((r) => r.match.test(location || "")) || { id: "road", flicker: false };
+  app.classList.remove("room-tavern", "room-chapel", "room-road", "room-camp", "room-dungeon", "flicker");
+  app.classList.add("room-" + hit.id);
+  if (hit.flicker) app.classList.add("flicker");
+}
+
 function paintState(state) {
   if (state.needs_code) $("code-row").classList.remove("hidden");
   $("camp-title").textContent = state.campaign.title || "Fallenlore";
   $("loc").textContent = state.campaign.location || "—";
+  setRoom(state.campaign.location || "");
   $("when").textContent = state.campaign.time || "—";
   $("weather").textContent = state.campaign.weather || "—";
   $("recap").textContent = state.campaign.recap || "";

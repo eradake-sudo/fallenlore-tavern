@@ -62,6 +62,38 @@ button {
   display: grid;
   grid-template-rows: auto 1fr auto;
   grid-template-columns: 1fr;
+  position: relative;
+  background-color: var(--bg);
+  background-size: cover;
+  background-position: center;
+}
+.app::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(#140e0cea, #140e0cd4 40%, #140e0cf0);
+  pointer-events: none;
+  z-index: 0;
+}
+.app > * { position: relative; z-index: 1; }
+.app.room-tavern { background-image: url("/static/rooms/tavern.jpg"); }
+.app.room-chapel { background-image: url("/static/rooms/chapel.jpg"); }
+.app.room-road { background-image: url("/static/rooms/road.jpg"); }
+.app.room-camp { background-image: url("/static/rooms/camp.jpg"); }
+.app.room-dungeon { background-image: url("/static/rooms/dungeon.jpg"); }
+.app.flicker::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse at 70% 80%, #c45c2a22, transparent 55%);
+  animation: ember 3.6s ease-in-out infinite;
+}
+@keyframes ember {
+  0%, 100% { opacity: .35; }
+  40% { opacity: .6; }
+  70% { opacity: .28; }
 }
 .top {
   display: flex;
