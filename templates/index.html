@@ -46,6 +46,7 @@
         <h1>The Tavern Table</h1>
       </div>
       <div class="top-actions">
+        <button id="open-seated" type="button">Seated</button>
         <button id="open-book" type="button">Chronicle</button>
         <button id="toggle-panel" type="button" aria-label="Campaign">Map</button>
       </div>
@@ -72,6 +73,20 @@
       <div id="log" class="log"></div>
       <p id="thinking" class="thinking hidden">The DM studies the map…</p>
     </main>
+
+    <div id="seated" class="book hidden" role="dialog" aria-label="Who is seated">
+      <div class="book-inner">
+        <header class="book-bar">
+          <p class="eyebrow">At the table</p>
+          <button id="close-seated" type="button">Close</button>
+        </header>
+        <div class="book-page">
+          <h2>Seated</h2>
+          <ul id="seated-list" class="seated-list"></ul>
+          <p class="hint">Green is live in the room. Dim is signed in but the tab is closed.</p>
+        </div>
+      </div>
+    </div>
 
     <div id="book" class="book hidden" role="dialog" aria-label="Campaign chronicle">
       <div class="book-inner">
