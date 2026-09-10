@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#140e0c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fallenlore" />
+  <link rel="manifest" href="/static/manifest.json" />
+  <link rel="apple-touch-icon" href="/static/icon.svg" />
+  <title>Fallenlore Tavern</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="gate" class="gate">
+    <div class="gate-card">
+      <p class="eyebrow">Shared table · Grok as DM</p>
+      <h1>Fallenlore Tavern</h1>
+      <p class="lede">Take a seat. Play through the day. The DM answers when you act.</p>
+      <form id="join-form">
+        <label>Your name
+          <input id="name" autocomplete="nickname" required maxlength="32" placeholder="Erik" />
+        </label>
+        <label>Character
+          <input id="character" maxlength="40" placeholder="Elyon Daecar" />
+        </label>
+        <label>Class / role <span class="opt">(optional)</span>
+          <input id="cls" maxlength="24" placeholder="Paladin, warlock…" />
+        </label>
+        <label id="code-row" class="hidden">Room code
+          <input id="code" maxlength="40" placeholder="the mark on the door" />
+        </label>
+        <button type="submit">Open the door</button>
+        <p id="join-error" class="error"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <header class="top">
+      <div>
+        <p class="eyebrow" id="camp-title">Fallenlore</p>
+        <h1>The Tavern Table</h1>
+      </div>
+      <button id="toggle-panel" type="button" aria-label="Campaign">Map</button>
+    </header>
+
+    <aside id="panel" class="panel">
+      <h2>The board</h2>
+      <dl>
+        <dt>Where</dt>
+        <dd id="loc"></dd>
+        <dt>When</dt>
+        <dd id="when"></dd>
+        <dt>Air</dt>
+        <dd id="weather"></dd>
+      </dl>
+      <p class="recap" id="recap"></p>
+      <h2>Seated</h2>
+      <ul id="party"></ul>
+      <p class="hint" id="api-hint"></p>
+      <button id="summon" type="button">Summon the DM</button>
+    </aside>
+
+    <main class="log-wrap">
+      <div id="log" class="log"></div>
+      <p id="thinking" class="thinking hidden">The DM studies the map…</p>
+    </main>
+
+    <form id="composer" class="composer">
+      <div class="kinds">
+        <label><input type="radio" name="kind" value="action" checked /> Act</label>
+        <label><input type="radio" name="kind" value="say" /> Speak</label>
+        <label><input type="radio" name="kind" value="ooc" /> OOC</label>
+      </div>
+      <textarea id="text" rows="2" placeholder="I push the chapel door.  /roll 1d20+4"></textarea>
+      <div class="row">
+        <button type="button" id="quick-roll">d20</button>
+        <button type="submit">Send</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
