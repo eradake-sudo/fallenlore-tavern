@@ -1,8 +1,14 @@
-const socket = io();
+const socket = io({
+  transports: ["websocket", "polling"],
+  reconnection: true,
+  reconnectionDelay: 500,
+  reconnectionAttempts: 20,
+});
 const store = {
   you: JSON.parse(localStorage.getItem("fallenlore-you") || "null"),
   chronicle: [],
   chapterId: null,
+  messages: [],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -88,10 +94,62 @@ function paintState(state) {
   paintPeople($("seated-list"));
 }
 
+function parseRoll(text) {
+  const total = (text.match(/=\s*\*\*(\d+)\*\*/) || text.match(/=\s*(\d+)/) || [])[1];
+  const expr = (text.match(/(\d+d\d+(?:[+-]\d+)?)/i) || [])[1] || "dice";
+  return { total: total || "?", expr };
+}
+
+function paintRolls(messages) {
+  const ul = $("rolls-list");
+  if (!ul) return;
+  const rolls = (messages || []).filter((m) => m.kind === "roll");
+  ul.innerHTML = "";
+  if (!rolls.length) {
+    const li = document.createElement("li");
+    li.textContent = "No rolls yet.";
+    ul.appendChild(li);
+    return;
+  }
+  rolls.slice().reverse().forEach((m) => {
+    const { total, expr } = parseRoll(m.text);
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="roll-total">${escapeHtml(total)}</span><div><strong>${escapeHtml(m.character || m.name)}</strong> ${escapeHtml(expr)}<div class="roll-when">${escapeHtml((m.ts || "").replace("T", " ").slice(0, 19))}</div></div>`;
+    ul.appendChild(li);
+  });
+}
+
+function flashDice(m) {
+  const { total, expr } = parseRoll(m.text || "");
+  const flash = $("dice-flash");
+  $("die-face").textContent = "?";
+  $("dice-who").textContent = m.character || m.name || "Dice";
+  $("dice-expr").textContent = expr;
+  flash.classList.remove("hidden");
+  $("die-face").classList.remove("settle");
+  $("die-face").classList.add("tumble");
+  const faces = [1, 2, 3, 4, 5, 6, 8, 10, 12, 20];
+  let n = 0;
+  const tick = setInterval(() => {
+    $("die-face").textContent = String(faces[n % faces.length]);
+    n += 1;
+  }, 70);
+  setTimeout(() => {
+    clearInterval(tick);
+    $("die-face").classList.remove("tumble");
+    $("die-face").classList.add("settle");
+    $("die-face").textContent = total;
+  }, 700);
+  clearTimeout(flash._hide);
+  flash._hide = setTimeout(() => flash.classList.add("hidden"), 2200);
+}
+
 function paintLog(messages) {
+  store.messages = messages || [];
   logEl.innerHTML = "";
-  (messages || []).forEach((m) => logEl.appendChild(renderMessage(m)));
+  store.messages.filter((m) => m.kind !== "roll").forEach((m) => logEl.appendChild(renderMessage(m)));
   logEl.scrollTop = logEl.scrollHeight;
+  paintRolls(store.messages);
 }
 
 function paintBook(list, stayOnId) {
@@ -138,6 +196,12 @@ socket.on("state", (state) => {
 socket.on("chronicle", (list) => paintBook(list, store.chapterId));
 
 socket.on("message", (m) => {
+  store.messages.push(m);
+  if (m.kind === "roll") {
+    flashDice(m);
+    paintRolls(store.messages);
+    return;
+  }
   logEl.appendChild(renderMessage(m));
   logEl.scrollTop = logEl.scrollHeight;
 });
@@ -193,6 +257,8 @@ $("toggle-panel").addEventListener("click", () => {
 
 $("open-seated").addEventListener("click", () => $("seated").classList.remove("hidden"));
 $("close-seated").addEventListener("click", () => $("seated").classList.add("hidden"));
+$("open-rolls").addEventListener("click", () => $("rolls").classList.remove("hidden"));
+$("close-rolls").addEventListener("click", () => $("rolls").classList.add("hidden"));
 
 $("open-book").addEventListener("click", () => {
   $("book").classList.remove("hidden");
