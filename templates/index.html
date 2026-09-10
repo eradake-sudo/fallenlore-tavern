@@ -45,7 +45,10 @@
         <p class="eyebrow" id="camp-title">Fallenlore</p>
         <h1>The Tavern Table</h1>
       </div>
-      <button id="toggle-panel" type="button" aria-label="Campaign">Map</button>
+      <div class="top-actions">
+        <button id="open-book" type="button">Chronicle</button>
+        <button id="toggle-panel" type="button" aria-label="Campaign">Map</button>
+      </div>
     </header>
 
     <aside id="panel" class="panel">
@@ -69,6 +72,27 @@
       <div id="log" class="log"></div>
       <p id="thinking" class="thinking hidden">The DM studies the map…</p>
     </main>
+
+    <div id="book" class="book hidden" role="dialog" aria-label="Campaign chronicle">
+      <div class="book-inner">
+        <header class="book-bar">
+          <p class="eyebrow">Campaign chronicle</p>
+          <button id="close-book" type="button">Close</button>
+        </header>
+        <div class="book-layout">
+          <nav id="book-toc" class="book-toc"></nav>
+          <article class="book-page">
+            <h2 id="book-title">The chronicle</h2>
+            <p id="book-meta" class="book-meta"></p>
+            <div id="book-body" class="book-body"></div>
+            <div class="book-tools">
+              <button id="write-session" type="button">Write last session into the book</button>
+              <button id="write-campaign" type="button" class="ghost">Write the whole campaign</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
 
     <form id="composer" class="composer">
       <div class="kinds">
