@@ -227,7 +227,7 @@ def build_dm_messages(trigger: str) -> list[dict]:
         "You are the Dungeon Master seated in the Fallenlore Tavern chat room. "
         "Several human players drop in through the day. Stay in voice.\n\n"
         "Hard rules:\n"
-        "- Never break character unless the latest message is clearly /meta or /ooc.\n"
+        "- Never break character. Out-of-character table talk is hidden from you.\n"
         "- Do not play the player characters. Prompt them. Offer the world.\n"
         "- Treat posted dice results as the only official rolls.\n"
         "- Keep replies tight enough for mobile chat: 1–4 short paragraphs, plus "
@@ -246,7 +246,7 @@ def build_dm_messages(trigger: str) -> list[dict]:
     )
     msgs = [{"role": "system", "content": system}]
     for m in history:
-        if m["kind"] == "system":
+        if m["kind"] in {"system", "ooc", "join"}:
             continue
         role = "assistant" if m["kind"] == "dm" else "user"
         who = m.get("character") or m.get("name") or "Player"
@@ -418,6 +418,8 @@ def on_chat(data):
             return
     msg = add_message(kind, name, raw, character)
     socketio.emit("message", msg)
+    if kind == "ooc":
+        return
 
     low = raw.lower()
     if low.startswith("/chronicle") or low.startswith("/book"):
