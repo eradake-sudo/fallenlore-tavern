@@ -1,0 +1,17 @@
+{
+  "name": "Fallenlore Tavern",
+  "short_name": "Fallenlore",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#140e0c",
+  "theme_color": "#140e0c",
+  "description": "Shared D&D table with Grok as DM",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
