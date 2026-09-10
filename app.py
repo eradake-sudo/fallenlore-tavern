@@ -71,6 +71,18 @@ def default_state() -> dict:
             ),
         },
         "players": {},
+        "chronicle": [
+            {
+                "id": "opening",
+                "ts": now_iso(),
+                "title": "The veil thins",
+                "body": (
+                    "The veil over Fallenlore is thinning. Contracts, cults, and "
+                    "polite devils have begun to surface. The party stands on the "
+                    "road through Ashford Vale toward Blackveil."
+                ),
+            }
+        ],
         "messages": [
             {
                 "id": "welcome",
@@ -97,6 +109,7 @@ def load_state() -> dict:
             base.setdefault("campaign", default_state()["campaign"])
             base.setdefault("players", {})
             base.setdefault("messages", [])
+            base.setdefault("chronicle", default_state()["chronicle"])
             return base
         except Exception:
             pass
@@ -118,6 +131,7 @@ def public_state() -> dict:
             "campaign": STATE["campaign"],
             "players": list(STATE["players"].values()),
             "messages": STATE["messages"][-200:],
+            "chronicle": STATE.get("chronicle", []),
             "has_api_key": bool(XAI_API_KEY),
             "needs_code": bool(ROOM_CODE),
         }
@@ -138,6 +152,35 @@ def add_message(kind: str, name: str, text: str, character: str = "") -> dict:
             STATE["messages"] = STATE["messages"][-500:]
         save_state(STATE)
     return msg
+
+
+def add_chapter(title: str, body: str) -> dict:
+    chapter = {
+        "id": f"ch-{int(datetime.now().timestamp())}",
+        "ts": now_iso(),
+        "title": (title or "Untitled leaf").strip()[:80],
+        "body": (body or "").strip()[:4000],
+    }
+    with SAVE_LOCK:
+        STATE.setdefault("chronicle", [])
+        STATE["chronicle"].append(chapter)
+        if len(STATE["chronicle"]) > 80:
+            STATE["chronicle"] = STATE["chronicle"][-80:]
+        recap = chapter["body"].split("\n")[0][:400]
+        STATE["campaign"]["recap"] = recap
+        save_state(STATE)
+    return chapter
+
+
+def parse_chapter(text: str, fallback_title: str) -> tuple[str, str]:
+    title = fallback_title
+    body = text.strip()
+    m = re.search(r"(?im)^TITLE:\s*(.+)$", text)
+    if m:
+        title = m.group(1).strip()
+        body = re.sub(r"(?im)^TITLE:\s*.+$", "", text, count=1)
+        body = re.sub(r"(?im)^BODY:\s*", "", body, count=1).strip()
+    return title[:80], body[:4000]
 
 
 def roll_dice(expr: str) -> str | None:
@@ -178,7 +221,10 @@ def build_dm_messages(trigger: str) -> list[dict]:
         "- If multiple players acted, resolve in the order they spoke.\n"
         "- Update the living world: name NPCs, mark consequences, advance time "
         "when a scene closes.\n"
-        "- After a major beat, include a one-line STATUS: Location — Time — open hook.\n\n"
+        "- After a major beat, include a one-line STATUS: Location — Time — open hook.\n"
+        "- If the chat log already has a scene in progress, CONTINUE that scene. "
+        "Never open a new road, farmer, or town unless the log closed the last scene.\n"
+        "- The website welcome line is flavor, not a new adventure.\n\n"
         f"CAMPAIGN STATE:\n{campaign}\n\n"
         f"PARTY AT THE TABLE:\n{players}\n\n"
         f"WORLD BIBLE:\n{world}"
@@ -240,11 +286,32 @@ def call_grok(trigger: str) -> str:
         return f"The DM's voice snags on the veil. (API error: {exc})"
 
 
-def dm_reply(trigger: str) -> None:
+def dm_reply(trigger: str, save_chapter: bool = False, chapter_title: str = "") -> None:
     socketio.emit("dm_thinking", {"thinking": True})
+    if save_chapter:
+        trigger = (
+            "Write a chronicle chapter for the campaign bible. "
+            "This will be read later like a book, not played as a live scene. "
+            "Do not ask 'what do you do?'. Do not start a new adventure. "
+            "First line exactly: TITLE: <short chapter title>\n"
+            "Then BODY: and 2–6 short paragraphs covering what happened, "
+            "who is angry, where the party is, and the open hook.\n"
+            f"Focus: {trigger}"
+        )
     text = call_grok(trigger)
     msg = add_message("dm", "DM", text, character="Dungeon Master")
     socketio.emit("message", msg)
+    if save_chapter:
+        title, body = parse_chapter(text, chapter_title or "Session leaf")
+        chapter = add_chapter(title, body)
+        socketio.emit("chronicle", public_state()["chronicle"])
+        note = add_message(
+            "system",
+            "Tavern",
+            f"A page is bound into the chronicle: {chapter['title']}",
+        )
+        socketio.emit("message", note)
+        socketio.emit("state", public_state())
     socketio.emit("dm_thinking", {"thinking": False})
 
 
@@ -335,9 +402,14 @@ def on_chat(data):
     msg = add_message(kind, name, raw, character)
     socketio.emit("message", msg)
 
-    auto = kind in {"action", "say"} or raw.lower().startswith(
-        ("/look", "/recap", "/help")
-    )
+    low = raw.lower()
+    if low.startswith("/chronicle") or low.startswith("/book"):
+        focus = raw.split(" ", 1)[1].strip() if " " in raw else "last session"
+        socketio.start_background_task(
+            dm_reply, focus, True, focus[:80]
+        )
+        return
+    auto = kind in {"action", "say"} or low.startswith(("/look", "/recap", "/help"))
     if auto:
         socketio.start_background_task(dm_reply, f"{character} ({kind}): {raw}")
 
@@ -347,6 +419,13 @@ def on_summon(data):
     data = data or {}
     who = str(data.get("character") or data.get("name") or "The table")
     socketio.start_background_task(dm_reply, f"{who} asks the DM to continue the scene.")
+
+
+@socketio.on("write_chapter")
+def on_write_chapter(data):
+    data = data or {}
+    focus = str(data.get("focus") or "last session").strip()[:80]
+    socketio.start_background_task(dm_reply, focus, True, focus)
 
 
 @socketio.on("update_campaign")
