@@ -195,10 +195,26 @@ function paintWorks(works) {
       ? `${plot.name} is cut out until dawn.`
       : `Tap the stand. ${plot.taken || 0} / ${plot.cap || 0} ${plot.mat || ""} today · ${plot.per_click || 1} per swing`;
   }
-  ["forest", "mine"].forEach((id) => {
+  ["forest", "mine", "quarry", "ruin"].forEach((id) => {
     const tab = $("tab-" + id);
     if (tab) tab.classList.toggle("on", id === pid);
   });
+  const slots = $("yard-slots");
+  if (slots) {
+    slots.innerHTML = "";
+    (w.built || []).forEach((id) => {
+      const img = document.createElement("img");
+      img.src = `/static/works/${id}.jpg`;
+      img.alt = id;
+      slots.appendChild(img);
+    });
+    if (!(w.built || []).length) {
+      const p = document.createElement("p");
+      p.className = "hint";
+      p.textContent = "Nothing raised yet.";
+      slots.appendChild(p);
+    }
+  }
   const crate = $("works-crate");
   if (crate) {
     const mats = w.materials || {};
@@ -343,8 +359,12 @@ $("toggle-panel").addEventListener("click", () => {
 
 $("open-works").addEventListener("click", () => $("works").classList.remove("hidden"));
 $("close-works").addEventListener("click", () => $("works").classList.add("hidden"));
-$("tab-forest").addEventListener("click", () => { store.plot = "forest"; paintWorks(store.works); });
-$("tab-mine").addEventListener("click", () => { store.plot = "mine"; paintWorks(store.works); });
+["forest", "mine", "quarry", "ruin"].forEach((id) => {
+  $("tab-" + id).addEventListener("click", () => {
+    store.plot = id;
+    paintWorks(store.works);
+  });
+});
 $("plot-hit").addEventListener("click", () => {
   if (!store.you) return;
   socket.emit("works_chop", { ...store.you, plot: store.plot || "forest" });

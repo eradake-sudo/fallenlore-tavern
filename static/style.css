@@ -321,7 +321,7 @@ button {
 .book-tools { display: flex; flex-direction: column; gap: .45rem; margin-top: 1.2rem; }
 .book-tools .ghost { background: #3a2418; }
 
-.plot-tabs { display: flex; gap: .35rem; margin-bottom: .45rem; }
+.plot-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; margin-bottom: .45rem; }
 .plot-tabs button { flex: 1; background: #3a2418; }
 .plot-tabs button.on { background: var(--ember); }
 .plot-hit {
