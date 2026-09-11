@@ -47,6 +47,7 @@
       </div>
       <div class="top-actions">
         <button id="open-seated" type="button">Seated</button>
+        <button id="open-rolls" type="button">Dice</button>
         <button id="open-book" type="button">Chronicle</button>
         <button id="toggle-panel" type="button" aria-label="Campaign">Map</button>
       </div>
@@ -73,6 +74,25 @@
       <div id="log" class="log"></div>
       <p id="thinking" class="thinking hidden">The DM studies the map…</p>
     </main>
+
+    <div id="dice-flash" class="dice-flash hidden" aria-live="polite">
+      <div class="die" id="die-face">20</div>
+      <p id="dice-who"></p>
+      <p id="dice-expr"></p>
+    </div>
+
+    <div id="rolls" class="book hidden" role="dialog" aria-label="Dice log">
+      <div class="book-inner">
+        <header class="book-bar">
+          <p class="eyebrow">Dice log</p>
+          <button id="close-rolls" type="button">Close</button>
+        </header>
+        <div class="book-page">
+          <h2>Rolls</h2>
+          <ul id="rolls-list" class="rolls-list"></ul>
+        </div>
+      </div>
+    </div>
 
     <div id="seated" class="book hidden" role="dialog" aria-label="Who is seated">
       <div class="book-inner">
