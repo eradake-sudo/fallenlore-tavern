@@ -48,7 +48,7 @@ socketio = SocketIO(
     engineio_logger=False,
 )
 
-SAVE_LOCK = threading.Lock()
+SAVE_LOCK = threading.RLock()
 DICE_RE = re.compile(
     r"/roll\s+(\d{1,3})d(\d{1,3})([+-]\d{1,3})?",
     re.IGNORECASE,
