@@ -110,10 +110,12 @@ def default_state() -> dict:
             "built": [],
             "stamina": 12,
             "stamina_tick": now_iso(),
-            "tools": {"axe": 1, "pick": 1},
+            "tools": {"axe": 1, "pick": 1, "hammer": 1, "knife": 1},
             "plots": {
                 "forest": {"day": "", "taken": 0},
                 "mine": {"day": "", "taken": 0},
+                "quarry": {"day": "", "taken": 0},
+                "ruin": {"day": "", "taken": 0},
             },
             "log": [],
         },
@@ -148,25 +150,37 @@ STATE = load_state()
 WORKS_PLOTS = {
     "forest": {"name": "Ashford copse", "mat": "oak", "tool": "axe", "cap": 80, "stages": 4},
     "mine": {"name": "Slag pit", "mat": "iron", "tool": "pick", "cap": 60, "stages": 3},
+    "quarry": {"name": "Cut quarry", "mat": "stone", "tool": "hammer", "cap": 60, "stages": 3},
+    "ruin": {"name": "Burned hamlet", "mat": "cloth", "tool": "knife", "cap": 40, "stages": 3},
 }
 WORKS_TOOLS = {
     "axe": {
         "name": "Axe",
         "yields": [1, 2, 3, 5],
-        "costs": [{}, {"oak": 20}, {"oak": 50, "iron": 8}, {"oak": 90, "iron": 20}],
+        "costs": [{}, {"oak": 25}, {"oak": 60, "iron": 10}, {"oak": 110, "iron": 25}],
     },
     "pick": {
         "name": "Pick",
         "yields": [1, 2, 3, 5],
-        "costs": [{}, {"iron": 15, "oak": 10}, {"iron": 35, "oak": 25}, {"iron": 70, "oak": 40}],
+        "costs": [{}, {"iron": 20, "oak": 12}, {"iron": 40, "oak": 30}, {"iron": 80, "oak": 50}],
+    },
+    "hammer": {
+        "name": "Hammer",
+        "yields": [1, 2, 3, 5],
+        "costs": [{}, {"stone": 20, "oak": 10}, {"stone": 40, "iron": 15}, {"stone": 70, "iron": 30}],
+    },
+    "knife": {
+        "name": "Knife",
+        "yields": [1, 2, 3, 4],
+        "costs": [{}, {"cloth": 12, "iron": 8}, {"cloth": 24, "iron": 16}, {"cloth": 40, "iron": 28}],
     },
 }
 WORKS_BUILDS = {
-    "palisade": {"name": "Palisade", "need": {"oak": 4, "stone": 2}},
-    "watchpost": {"name": "Watchpost", "need": {"oak": 6, "iron": 3}},
-    "bunkhouse": {"name": "Bunkhouse", "need": {"oak": 8, "cloth": 3}},
-    "shrine": {"name": "Wayside shrine", "need": {"stone": 5, "cinder": 2}},
-    "workshop": {"name": "Workshop", "need": {"oak": 6, "iron": 6}},
+    "palisade": {"name": "Palisade", "need": {"oak": 70, "stone": 40}},
+    "watchpost": {"name": "Watchpost", "need": {"oak": 50, "iron": 40}},
+    "bunkhouse": {"name": "Bunkhouse", "need": {"oak": 60, "cloth": 30}},
+    "shrine": {"name": "Wayside shrine", "need": {"stone": 50, "cloth": 20}},
+    "workshop": {"name": "Workshop", "need": {"oak": 50, "iron": 50}},
 }
 WORKS_MAX = 12
 WORKS_REGEN_SEC = 8 * 60
@@ -181,8 +195,17 @@ def ensure_works() -> dict:
     w.setdefault("materials", default_state()["works"]["materials"])
     w.setdefault("built", [])
     w.setdefault("log", [])
-    w.setdefault("tools", {"axe": 1, "pick": 1})
-    w.setdefault("plots", {"forest": {"day": "", "taken": 0}, "mine": {"day": "", "taken": 0}})
+    w.setdefault("tools", {"axe": 1, "pick": 1, "hammer": 1, "knife": 1})
+    w.setdefault("plots", {
+        "forest": {"day": "", "taken": 0},
+        "mine": {"day": "", "taken": 0},
+        "quarry": {"day": "", "taken": 0},
+        "ruin": {"day": "", "taken": 0},
+    })
+    w["tools"].setdefault("hammer", 1)
+    w["tools"].setdefault("knife", 1)
+    w["plots"].setdefault("quarry", {"day": "", "taken": 0})
+    w["plots"].setdefault("ruin", {"day": "", "taken": 0})
     day = _works_day()
     for pid, plot in w["plots"].items():
         if plot.get("day") != day:
