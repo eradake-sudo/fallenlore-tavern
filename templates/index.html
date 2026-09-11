@@ -105,14 +105,17 @@
           <button id="close-works" type="button">Close</button>
         </header>
         <div class="book-page">
-          <div class="yard">
-            <img id="yard-art" src="/static/works/yard.jpg" alt="The yard" />
-            <div id="yard-slots" class="yard-slots"></div>
+          <div class="plot-tabs">
+            <button type="button" id="tab-forest" class="on">Forest</button>
+            <button type="button" id="tab-mine">Mine</button>
           </div>
-          <p id="works-stamina" class="hint"></p>
+          <button type="button" id="plot-hit" class="plot-hit">
+            <img id="plot-art" src="/static/works/forest-0.jpg" alt="The stand" />
+            <span id="plot-float" class="plot-float hidden"></span>
+          </button>
+          <p id="plot-status" class="hint"></p>
           <div id="works-crate" class="crate"></div>
-          <h2>Gather</h2>
-          <div id="works-sites" class="works-grid"></div>
+          <div id="works-tools" class="works-grid"></div>
           <h2>Raise</h2>
           <div id="works-builds" class="works-grid"></div>
           <ul id="works-log" class="works-log"></ul>
