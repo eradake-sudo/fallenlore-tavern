@@ -105,6 +105,13 @@ def default_state() -> dict:
                 ),
             }
         ],
+        "works": {
+            "materials": {"oak": 0, "stone": 0, "iron": 0, "cloth": 0, "cinder": 0, "relic": 0},
+            "built": [],
+            "stamina": 6,
+            "stamina_day": "",
+            "log": [],
+        },
     }
 
 
@@ -118,6 +125,7 @@ def load_state() -> dict:
             base.setdefault("players", {})
             base.setdefault("messages", [])
             base.setdefault("chronicle", default_state()["chronicle"])
+            base.setdefault("works", default_state()["works"])
             return base
         except Exception:
             pass
@@ -132,6 +140,50 @@ def save_state(state: dict) -> None:
 
 STATE = load_state()
 
+WORKS_SITES = {
+    "copse": {"name": "Ashford copse", "give": "oak", "lo": 2, "hi": 4},
+    "quarry": {"name": "Cut quarry", "give": "stone", "lo": 2, "hi": 4},
+    "slag": {"name": "Slag pit", "give": "iron", "lo": 1, "hi": 3},
+    "hamlet": {"name": "Burned hamlet", "give": "cloth", "lo": 1, "hi": 3},
+    "cellar": {"name": "Chapel cellar", "give": "cinder", "lo": 1, "hi": 2},
+}
+WORKS_BUILDS = {
+    "palisade": {"name": "Palisade", "need": {"oak": 8, "stone": 4}},
+    "watchpost": {"name": "Watchpost", "need": {"oak": 6, "iron": 4}},
+    "bunkhouse": {"name": "Bunkhouse", "need": {"oak": 10, "cloth": 4}},
+    "shrine": {"name": "Wayside shrine", "need": {"stone": 6, "cinder": 3}},
+    "workshop": {"name": "Workshop", "need": {"oak": 6, "iron": 8}},
+}
+
+
+def _works_day() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def ensure_works() -> dict:
+    w = STATE.setdefault("works", default_state()["works"])
+    w.setdefault("materials", default_state()["works"]["materials"])
+    w.setdefault("built", [])
+    w.setdefault("log", [])
+    if w.get("stamina_day") != _works_day():
+        w["stamina"] = 6
+        w["stamina_day"] = _works_day()
+    return w
+
+
+def public_works() -> dict:
+    with SAVE_LOCK:
+        w = ensure_works()
+        return {
+            "materials": dict(w["materials"]),
+            "built": list(w["built"]),
+            "stamina": w["stamina"],
+            "stamina_max": 6,
+            "log": list(w["log"][-12:]),
+            "sites": {k: {"name": v["name"]} for k, v in WORKS_SITES.items()},
+            "builds": WORKS_BUILDS,
+        }
+
 
 def public_state() -> dict:
     with SAVE_LOCK:
@@ -140,6 +192,7 @@ def public_state() -> dict:
             "players": list(STATE["players"].values()),
             "messages": STATE["messages"][-200:],
             "chronicle": STATE.get("chronicle", []),
+            "works": public_works(),
             "has_api_key": bool(XAI_API_KEY),
             "needs_code": bool(ROOM_CODE),
         }
@@ -472,6 +525,66 @@ def on_update_campaign(data):
             if key in data and str(data[key]).strip():
                 camp[key] = str(data[key]).strip()[:400]
         save_state(STATE)
+    socketio.emit("state", public_state())
+
+
+@socketio.on("works_gather")
+def on_works_gather(data):
+    data = data or {}
+    site_id = str(data.get("site") or "")
+    who = str(data.get("character") or data.get("name") or "Someone").strip()[:40]
+    site = WORKS_SITES.get(site_id)
+    if not site:
+        emit("works_toast", {"ok": False, "text": "That site is not on the map."})
+        return
+    with SAVE_LOCK:
+        w = ensure_works()
+        if w["stamina"] <= 0:
+            emit("works_toast", {"ok": False, "text": "Hands are done for the day. Come back tomorrow."})
+            return
+        w["stamina"] -= 1
+        amt = random.randint(site["lo"], site["hi"])
+        mat = site["give"]
+        w["materials"][mat] = w["materials"].get(mat, 0) + amt
+        extra = ""
+        roll = random.randint(1, 100)
+        if roll <= 6:
+            w["materials"]["relic"] = w["materials"].get("relic", 0) + 1
+            extra = " Relic spark!"
+        line = f"{who} pulled +{amt} {mat} at the {site['name']}.{extra}"
+        w["log"].append(line)
+        w["log"] = w["log"][-30:]
+        save_state(STATE)
+    socketio.emit("works_toast", {"ok": True, "text": line})
+    socketio.emit("state", public_state())
+
+
+@socketio.on("works_build")
+def on_works_build(data):
+    data = data or {}
+    build_id = str(data.get("id") or "")
+    who = str(data.get("character") or data.get("name") or "Someone").strip()[:40]
+    spec = WORKS_BUILDS.get(build_id)
+    if not spec:
+        emit("works_toast", {"ok": False, "text": "No such plan."})
+        return
+    with SAVE_LOCK:
+        w = ensure_works()
+        if build_id in w["built"]:
+            emit("works_toast", {"ok": False, "text": f"The {spec['name']} already stands."})
+            return
+        for mat, need in spec["need"].items():
+            if w["materials"].get(mat, 0) < need:
+                emit("works_toast", {"ok": False, "text": f"Not enough {mat} for the {spec['name']}."})
+                return
+        for mat, need in spec["need"].items():
+            w["materials"][mat] -= need
+        w["built"].append(build_id)
+        line = f"{who} raised the {spec['name']}."
+        w["log"].append(line)
+        w["log"] = w["log"][-30:]
+        save_state(STATE)
+    socketio.emit("works_toast", {"ok": True, "text": line})
     socketio.emit("state", public_state())
 
 
