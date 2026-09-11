@@ -187,12 +187,22 @@ def public_works() -> dict:
 
 def public_state() -> dict:
     with SAVE_LOCK:
+        w = ensure_works()
+        works = {
+            "materials": dict(w["materials"]),
+            "built": list(w["built"]),
+            "stamina": w["stamina"],
+            "stamina_max": 6,
+            "log": list(w["log"][-12:]),
+            "sites": {k: {"name": v["name"]} for k, v in WORKS_SITES.items()},
+            "builds": WORKS_BUILDS,
+        }
         return {
             "campaign": STATE["campaign"],
             "players": list(STATE["players"].values()),
             "messages": STATE["messages"][-200:],
             "chronicle": STATE.get("chronicle", []),
-            "works": public_works(),
+            "works": works,
             "has_api_key": bool(XAI_API_KEY),
             "needs_code": bool(ROOM_CODE),
         }
@@ -408,11 +418,12 @@ def index():
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "save": str(SAVE_PATH)})
+    return jsonify({"ok": True, "save": str(SAVE_PATH), "needs_code": bool(ROOM_CODE), "lock": "rlock"})
 
 
 @socketio.on("connect")
 def on_connect():
+    emit("hello", {"ok": True, "needs_code": bool(ROOM_CODE)})
     emit("state", public_state())
 
 
