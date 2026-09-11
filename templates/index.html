@@ -76,7 +76,10 @@
     </main>
 
     <div id="dice-flash" class="dice-flash hidden" aria-live="polite">
-      <div class="die" id="die-face">20</div>
+      <div class="die-wrap" id="die-wrap">
+        <img class="die-art" src="/static/dice/d20.jpg" alt="d20" />
+        <span class="die-result" id="die-face"></span>
+      </div>
       <p id="dice-who"></p>
       <p id="dice-expr"></p>
     </div>
