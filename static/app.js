@@ -183,10 +183,78 @@ function showChapter(id) {
   });
 }
 
+function paintWorks(works) {
+  store.works = works || store.works || {};
+  const w = store.works;
+  const mats = w.materials || {};
+  $("works-stamina").textContent = `Hands left today: ${w.stamina ?? 0} / ${w.stamina_max ?? 6}`;
+  const crate = $("works-crate");
+  crate.innerHTML = "";
+  ["oak", "stone", "iron", "cloth", "cinder", "relic"].forEach((k) => {
+    const d = document.createElement("div");
+    d.innerHTML = `<strong>${mats[k] || 0}</strong><span>${k}</span>`;
+    crate.appendChild(d);
+  });
+  const slots = $("yard-slots");
+  slots.innerHTML = "";
+  (w.built || []).forEach((id) => {
+    const img = document.createElement("img");
+    img.src = `/static/works/${id}.jpg`;
+    img.alt = id;
+    slots.appendChild(img);
+  });
+  const sites = $("works-sites");
+  sites.innerHTML = "";
+  Object.entries(w.sites || {}).forEach(([id, site]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = site.name;
+    b.disabled = (w.stamina || 0) <= 0;
+    b.addEventListener("click", () => {
+      if (!store.you) return;
+      socket.emit("works_gather", { ...store.you, site: id });
+    });
+    sites.appendChild(b);
+  });
+  const builds = $("works-builds");
+  builds.innerHTML = "";
+  Object.entries(w.builds || {}).forEach(([id, spec]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    const need = Object.entries(spec.need || {}).map(([k, n]) => `${n} ${k}`).join(", ");
+    const up = (w.built || []).includes(id);
+    b.textContent = up ? `${spec.name} stands` : `${spec.name} — ${need}`;
+    b.disabled = up;
+    if (!up) {
+      b.addEventListener("click", () => {
+        if (!store.you) return;
+        socket.emit("works_build", { ...store.you, id });
+      });
+    }
+    builds.appendChild(b);
+  });
+  const log = $("works-log");
+  log.innerHTML = "";
+  (w.log || []).slice().reverse().forEach((line) => {
+    const li = document.createElement("li");
+    li.textContent = line;
+    log.appendChild(li);
+  });
+}
+
 socket.on("state", (state) => {
   paintState(state);
   if (state.messages) paintLog(state.messages);
   if (state.chronicle) paintBook(state.chronicle, store.chapterId);
+  if (state.works) paintWorks(state.works);
+});
+
+socket.on("works_toast", ({ text }) => {
+  const el = $("works-toast");
+  el.textContent = text || "";
+  el.classList.remove("hidden");
+  clearTimeout(el._hide);
+  el._hide = setTimeout(() => el.classList.add("hidden"), 1800);
 });
 
 socket.on("chronicle", (list) => paintBook(list, store.chapterId));
@@ -251,6 +319,8 @@ $("toggle-panel").addEventListener("click", () => {
   $("panel").classList.toggle("open");
 });
 
+$("open-works").addEventListener("click", () => $("works").classList.remove("hidden"));
+$("close-works").addEventListener("click", () => $("works").classList.add("hidden"));
 $("open-seated").addEventListener("click", () => $("seated").classList.remove("hidden"));
 $("close-seated").addEventListener("click", () => $("seated").classList.add("hidden"));
 $("open-rolls").addEventListener("click", () => $("rolls").classList.remove("hidden"));

@@ -189,6 +189,41 @@ button {
   border-radius: .35rem;
 }
 .roll-when { color: var(--muted); font-size: .75rem; }
+.yard { position: relative; border: 1px solid var(--line); overflow: hidden; margin-bottom: .7rem; }
+.yard > img { width: 100%; display: block; }
+.yard-slots {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: .25rem;
+  padding: .35rem;
+  background: #0c0806cc;
+}
+.yard-slots img { height: 3.4rem; object-fit: cover; border: 1px solid #3a2a22; }
+.crate {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .35rem;
+  margin: .4rem 0 .8rem;
+}
+.crate div { background: #2a1c14; padding: .45rem .3rem; text-align: center; }
+.crate strong { display: block; font-size: 1.15rem; color: var(--gold); }
+.crate span { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.works-grid { display: grid; gap: .4rem; margin: .35rem 0 .9rem; }
+.works-grid button { background: #3a2418; text-align: left; }
+.works-grid button:disabled { opacity: .45; }
+.works-log { list-style: none; padding: 0; margin: 0 0 1rem; color: var(--muted); font-size: .85rem; }
+.works-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 6.5rem;
+  transform: translateX(-50%);
+  z-index: 60;
+  background: #c45c2a;
+  color: #fff8ee;
+  padding: .55rem .9rem;
+  font-weight: 600;
+  max-width: 90%;
+}
 .seated-list { list-style: none; padding: 0; margin: .4rem 0 1rem; }
 .seated-list li { padding: .55rem 0; border-bottom: 1px solid #2a2018; font-size: 1rem; }
 .seated-list em { float: right; font-style: normal; color: var(--muted); font-size: .78rem; }
