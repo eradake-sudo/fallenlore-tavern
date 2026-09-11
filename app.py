@@ -108,8 +108,13 @@ def default_state() -> dict:
         "works": {
             "materials": {"oak": 0, "stone": 0, "iron": 0, "cloth": 0, "cinder": 0, "relic": 0},
             "built": [],
-            "stamina": 6,
-            "stamina_day": "",
+            "stamina": 12,
+            "stamina_tick": now_iso(),
+            "tools": {"axe": 1, "pick": 1},
+            "plots": {
+                "forest": {"day": "", "taken": 0},
+                "mine": {"day": "", "taken": 0},
+            },
             "log": [],
         },
     }
@@ -140,20 +145,31 @@ def save_state(state: dict) -> None:
 
 STATE = load_state()
 
-WORKS_SITES = {
-    "copse": {"name": "Ashford copse", "give": "oak", "lo": 2, "hi": 4},
-    "quarry": {"name": "Cut quarry", "give": "stone", "lo": 2, "hi": 4},
-    "slag": {"name": "Slag pit", "give": "iron", "lo": 1, "hi": 3},
-    "hamlet": {"name": "Burned hamlet", "give": "cloth", "lo": 1, "hi": 3},
-    "cellar": {"name": "Chapel cellar", "give": "cinder", "lo": 1, "hi": 2},
+WORKS_PLOTS = {
+    "forest": {"name": "Ashford copse", "mat": "oak", "tool": "axe", "cap": 80, "stages": 4},
+    "mine": {"name": "Slag pit", "mat": "iron", "tool": "pick", "cap": 60, "stages": 3},
+}
+WORKS_TOOLS = {
+    "axe": {
+        "name": "Axe",
+        "yields": [1, 2, 3, 5],
+        "costs": [{}, {"oak": 20}, {"oak": 50, "iron": 8}, {"oak": 90, "iron": 20}],
+    },
+    "pick": {
+        "name": "Pick",
+        "yields": [1, 2, 3, 5],
+        "costs": [{}, {"iron": 15, "oak": 10}, {"iron": 35, "oak": 25}, {"iron": 70, "oak": 40}],
+    },
 }
 WORKS_BUILDS = {
-    "palisade": {"name": "Palisade", "need": {"oak": 8, "stone": 4}},
-    "watchpost": {"name": "Watchpost", "need": {"oak": 6, "iron": 4}},
-    "bunkhouse": {"name": "Bunkhouse", "need": {"oak": 10, "cloth": 4}},
-    "shrine": {"name": "Wayside shrine", "need": {"stone": 6, "cinder": 3}},
-    "workshop": {"name": "Workshop", "need": {"oak": 6, "iron": 8}},
+    "palisade": {"name": "Palisade", "need": {"oak": 4, "stone": 2}},
+    "watchpost": {"name": "Watchpost", "need": {"oak": 6, "iron": 3}},
+    "bunkhouse": {"name": "Bunkhouse", "need": {"oak": 8, "cloth": 3}},
+    "shrine": {"name": "Wayside shrine", "need": {"stone": 5, "cinder": 2}},
+    "workshop": {"name": "Workshop", "need": {"oak": 6, "iron": 6}},
 }
+WORKS_MAX = 12
+WORKS_REGEN_SEC = 8 * 60
 
 
 def _works_day() -> str:
@@ -165,38 +181,68 @@ def ensure_works() -> dict:
     w.setdefault("materials", default_state()["works"]["materials"])
     w.setdefault("built", [])
     w.setdefault("log", [])
-    if w.get("stamina_day") != _works_day():
-        w["stamina"] = 6
-        w["stamina_day"] = _works_day()
+    w.setdefault("tools", {"axe": 1, "pick": 1})
+    w.setdefault("plots", {"forest": {"day": "", "taken": 0}, "mine": {"day": "", "taken": 0}})
+    day = _works_day()
+    for pid, plot in w["plots"].items():
+        if plot.get("day") != day:
+            plot["day"] = day
+            plot["taken"] = 0
     return w
+
+
+def works_snapshot(w: dict) -> dict:
+    plots = {}
+    for pid, spec in WORKS_PLOTS.items():
+        p = w["plots"].get(pid, {"taken": 0})
+        taken = int(p.get("taken") or 0)
+        cap = spec["cap"]
+        stage = min(spec["stages"] - 1, int((taken / cap) * spec["stages"]) if cap else 0)
+        if taken >= cap:
+            stage = spec["stages"] - 1
+        tool = spec["tool"]
+        lvl = int(w["tools"].get(tool, 1))
+        ylds = WORKS_TOOLS[tool]["yields"]
+        plots[pid] = {
+            "name": spec["name"],
+            "mat": spec["mat"],
+            "tool": tool,
+            "taken": taken,
+            "cap": cap,
+            "stage": stage,
+            "image": f"/static/works/{pid}-{stage}.jpg",
+            "per_click": ylds[min(lvl, len(ylds)) - 1],
+            "spent": taken >= cap,
+        }
+    tools = {}
+    for tid, spec in WORKS_TOOLS.items():
+        lvl = int(w["tools"].get(tid, 1))
+        nxt = spec["costs"][lvl] if lvl < len(spec["yields"]) else None
+        tools[tid] = {
+            "name": spec["name"],
+            "level": lvl,
+            "per_click": spec["yields"][min(lvl, len(spec["yields"])) - 1],
+            "next": nxt,
+        }
+    return {
+        "materials": dict(w["materials"]),
+        "built": list(w["built"]),
+        "log": list(w["log"][-12:]),
+        "plots": plots,
+        "tools": tools,
+        "builds": WORKS_BUILDS,
+    }
 
 
 def public_works() -> dict:
     with SAVE_LOCK:
-        w = ensure_works()
-        return {
-            "materials": dict(w["materials"]),
-            "built": list(w["built"]),
-            "stamina": w["stamina"],
-            "stamina_max": 6,
-            "log": list(w["log"][-12:]),
-            "sites": {k: {"name": v["name"]} for k, v in WORKS_SITES.items()},
-            "builds": WORKS_BUILDS,
-        }
+        return works_snapshot(ensure_works())
 
 
 def public_state() -> dict:
     with SAVE_LOCK:
         w = ensure_works()
-        works = {
-            "materials": dict(w["materials"]),
-            "built": list(w["built"]),
-            "stamina": w["stamina"],
-            "stamina_max": 6,
-            "log": list(w["log"][-12:]),
-            "sites": {k: {"name": v["name"]} for k, v in WORKS_SITES.items()},
-            "builds": WORKS_BUILDS,
-        }
+        works = works_snapshot(w)
         return {
             "campaign": STATE["campaign"],
             "players": list(STATE["players"].values()),
@@ -539,35 +585,59 @@ def on_update_campaign(data):
     socketio.emit("state", public_state())
 
 
-@socketio.on("works_gather")
-def on_works_gather(data):
+@socketio.on("works_chop")
+def on_works_chop(data):
     data = data or {}
-    site_id = str(data.get("site") or "")
-    who = str(data.get("character") or data.get("name") or "Someone").strip()[:40]
-    site = WORKS_SITES.get(site_id)
-    if not site:
-        emit("works_toast", {"ok": False, "text": "That site is not on the map."})
+    plot_id = str(data.get("plot") or "forest")
+    spec = WORKS_PLOTS.get(plot_id)
+    if not spec:
+        emit("works_toast", {"ok": False, "text": "No such stand."})
         return
     with SAVE_LOCK:
         w = ensure_works()
-        if w["stamina"] <= 0:
-            emit("works_toast", {"ok": False, "text": "Hands are done for the day. Come back tomorrow."})
+        plot = w["plots"][plot_id]
+        if int(plot.get("taken") or 0) >= spec["cap"]:
+            emit("works_toast", {"ok": False, "text": f"The {spec['name']} is spent until dawn."})
             return
-        w["stamina"] -= 1
-        amt = random.randint(site["lo"], site["hi"])
-        mat = site["give"]
-        w["materials"][mat] = w["materials"].get(mat, 0) + amt
-        extra = ""
-        roll = random.randint(1, 100)
-        if roll <= 6:
-            w["materials"]["relic"] = w["materials"].get("relic", 0) + 1
-            extra = " Relic spark!"
-        line = f"{who} pulled +{amt} {mat} at the {site['name']}.{extra}"
-        w["log"].append(line)
-        w["log"] = w["log"][-30:]
+        lvl = int(w["tools"].get(spec["tool"], 1))
+        ylds = WORKS_TOOLS[spec["tool"]]["yields"]
+        amt = ylds[min(lvl, len(ylds)) - 1]
+        left = spec["cap"] - int(plot["taken"])
+        amt = min(amt, left)
+        plot["taken"] = int(plot["taken"]) + amt
+        w["materials"][spec["mat"]] = w["materials"].get(spec["mat"], 0) + amt
         save_state(STATE)
-    socketio.emit("works_toast", {"ok": True, "text": line})
-    socketio.emit("state", public_state())
+        snap = works_snapshot(w)
+    socketio.emit("works_toast", {"ok": True, "text": f"+{amt} {spec['mat']}", "pop": amt})
+    socketio.emit("works", snap)
+
+
+@socketio.on("works_upgrade")
+def on_works_upgrade(data):
+    data = data or {}
+    tool_id = str(data.get("tool") or "")
+    spec = WORKS_TOOLS.get(tool_id)
+    if not spec:
+        emit("works_toast", {"ok": False, "text": "No such tool."})
+        return
+    with SAVE_LOCK:
+        w = ensure_works()
+        lvl = int(w["tools"].get(tool_id, 1))
+        if lvl >= len(spec["yields"]):
+            emit("works_toast", {"ok": False, "text": f"The {spec['name']} is as good as it gets."})
+            return
+        cost = spec["costs"][lvl]
+        for mat, need in cost.items():
+            if w["materials"].get(mat, 0) < need:
+                emit("works_toast", {"ok": False, "text": f"Need more {mat} for a better {spec['name']}."})
+                return
+        for mat, need in cost.items():
+            w["materials"][mat] -= need
+        w["tools"][tool_id] = lvl + 1
+        save_state(STATE)
+        snap = works_snapshot(w)
+    socketio.emit("works_toast", {"ok": True, "text": f"{spec['name']} is now tier {lvl + 1}."})
+    socketio.emit("works", snap)
 
 
 @socketio.on("works_build")
