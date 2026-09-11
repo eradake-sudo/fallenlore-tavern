@@ -122,26 +122,22 @@ function paintRolls(messages) {
 function flashDice(m) {
   const { total, expr } = parseRoll(m.text || "");
   const flash = $("dice-flash");
-  $("die-face").textContent = "?";
+  const wrap = $("die-wrap");
+  const result = $("die-face");
   $("dice-who").textContent = m.character || m.name || "Dice";
   $("dice-expr").textContent = expr;
+  result.textContent = "";
+  result.classList.remove("show");
+  wrap.classList.remove("roll-in");
+  void wrap.offsetWidth;
   flash.classList.remove("hidden");
-  $("die-face").classList.remove("settle");
-  $("die-face").classList.add("tumble");
-  const faces = [1, 2, 3, 4, 5, 6, 8, 10, 12, 20];
-  let n = 0;
-  const tick = setInterval(() => {
-    $("die-face").textContent = String(faces[n % faces.length]);
-    n += 1;
-  }, 70);
+  wrap.classList.add("roll-in");
   setTimeout(() => {
-    clearInterval(tick);
-    $("die-face").classList.remove("tumble");
-    $("die-face").classList.add("settle");
-    $("die-face").textContent = total;
-  }, 700);
+    result.textContent = total;
+    result.classList.add("show");
+  }, 1150);
   clearTimeout(flash._hide);
-  flash._hide = setTimeout(() => flash.classList.add("hidden"), 2200);
+  flash._hide = setTimeout(() => flash.classList.add("hidden"), 2800);
 }
 
 function paintLog(messages) {
