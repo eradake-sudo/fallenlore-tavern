@@ -321,6 +321,31 @@ button {
 .book-tools { display: flex; flex-direction: column; gap: .45rem; margin-top: 1.2rem; }
 .book-tools .ghost { background: #3a2418; }
 
+.plot-tabs { display: flex; gap: .35rem; margin-bottom: .45rem; }
+.plot-tabs button { flex: 1; background: #3a2418; }
+.plot-tabs button.on { background: var(--ember); }
+.plot-hit {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: #000;
+  margin-bottom: .45rem;
+}
+.plot-hit img { width: 100%; display: block; }
+.plot-float {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  color: #f3e6d0;
+  font-family: Cinzel, serif;
+  font-size: 2rem;
+  text-shadow: 0 2px 8px #000;
+  pointer-events: none;
+}
+
 @media (min-width: 900px) {
   .app {
     grid-template-columns: 280px 1fr;

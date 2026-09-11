@@ -9,6 +9,7 @@ const store = {
   chronicle: [],
   chapterId: null,
   messages: [],
+  plot: "forest",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -186,61 +187,72 @@ function showChapter(id) {
 function paintWorks(works) {
   store.works = works || store.works || {};
   const w = store.works;
-  const mats = w.materials || {};
-  $("works-stamina").textContent = `Hands left today: ${w.stamina ?? 0} / ${w.stamina_max ?? 6}`;
+  const pid = store.plot || "forest";
+  const plot = (w.plots || {})[pid] || {};
+  if ($("plot-art") && plot.image) $("plot-art").src = plot.image;
+  if ($("plot-status")) {
+    $("plot-status").textContent = plot.spent
+      ? `${plot.name} is cut out until dawn.`
+      : `Tap the stand. ${plot.taken || 0} / ${plot.cap || 0} ${plot.mat || ""} today · ${plot.per_click || 1} per swing`;
+  }
+  ["forest", "mine"].forEach((id) => {
+    const tab = $("tab-" + id);
+    if (tab) tab.classList.toggle("on", id === pid);
+  });
   const crate = $("works-crate");
-  crate.innerHTML = "";
-  ["oak", "stone", "iron", "cloth", "cinder", "relic"].forEach((k) => {
-    const d = document.createElement("div");
-    d.innerHTML = `<strong>${mats[k] || 0}</strong><span>${k}</span>`;
-    crate.appendChild(d);
-  });
-  const slots = $("yard-slots");
-  slots.innerHTML = "";
-  (w.built || []).forEach((id) => {
-    const img = document.createElement("img");
-    img.src = `/static/works/${id}.jpg`;
-    img.alt = id;
-    slots.appendChild(img);
-  });
-  const sites = $("works-sites");
-  sites.innerHTML = "";
-  Object.entries(w.sites || {}).forEach(([id, site]) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = site.name;
-    b.disabled = (w.stamina || 0) <= 0;
-    b.addEventListener("click", () => {
-      if (!store.you) return;
-      socket.emit("works_gather", { ...store.you, site: id });
+  if (crate) {
+    const mats = w.materials || {};
+    crate.innerHTML = "";
+    ["oak", "iron", "stone", "cloth", "cinder", "relic"].forEach((k) => {
+      const d = document.createElement("div");
+      d.innerHTML = `<strong>${mats[k] || 0}</strong><span>${k}</span>`;
+      crate.appendChild(d);
     });
-    sites.appendChild(b);
-  });
+  }
+  const tools = $("works-tools");
+  if (tools) {
+    tools.innerHTML = "";
+    Object.entries(w.tools || {}).forEach(([id, t]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      if (!t.next) {
+        b.textContent = `${t.name} tier ${t.level} · ${t.per_click}/click · maxed`;
+        b.disabled = true;
+      } else {
+        const cost = Object.entries(t.next).map(([k, n]) => `${n} ${k}`).join(", ");
+        b.textContent = `Upgrade ${t.name} to tier ${t.level + 1} (${cost})`;
+        b.addEventListener("click", () => {
+          if (!store.you) return;
+          socket.emit("works_upgrade", { ...store.you, tool: id });
+        });
+      }
+      tools.appendChild(b);
+    });
+  }
   const builds = $("works-builds");
-  builds.innerHTML = "";
-  Object.entries(w.builds || {}).forEach(([id, spec]) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    const need = Object.entries(spec.need || {}).map(([k, n]) => `${n} ${k}`).join(", ");
-    const up = (w.built || []).includes(id);
-    b.textContent = up ? `${spec.name} stands` : `${spec.name} — ${need}`;
-    b.disabled = up;
-    if (!up) {
-      b.addEventListener("click", () => {
-        if (!store.you) return;
-        socket.emit("works_build", { ...store.you, id });
-      });
-    }
-    builds.appendChild(b);
-  });
-  const log = $("works-log");
-  log.innerHTML = "";
-  (w.log || []).slice().reverse().forEach((line) => {
-    const li = document.createElement("li");
-    li.textContent = line;
-    log.appendChild(li);
-  });
+  if (builds) {
+    builds.innerHTML = "";
+    Object.entries(w.builds || {}).forEach(([id, spec]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      const need = Object.entries(spec.need || {}).map(([k, n]) => `${n} ${k}`).join(", ");
+      const up = (w.built || []).includes(id);
+      b.textContent = up ? `${spec.name} stands` : `${spec.name} — ${need}`;
+      b.disabled = up;
+      if (!up) {
+        b.addEventListener("click", () => {
+          if (!store.you) return;
+          socket.emit("works_build", { ...store.you, id });
+        });
+      }
+      builds.appendChild(b);
+    });
+  }
 }
+
+socket.on("hello", (d) => {
+  if (d && d.needs_code) $("code-row").classList.remove("hidden");
+});
 
 socket.on("state", (state) => {
   paintState(state);
@@ -249,7 +261,16 @@ socket.on("state", (state) => {
   if (state.works) paintWorks(state.works);
 });
 
+socket.on("works", (w) => paintWorks(w));
+
 socket.on("works_toast", ({ text }) => {
+  const flo = $("plot-float");
+  if (flo && text && text.startsWith("+")) {
+    flo.textContent = text;
+    flo.classList.remove("hidden");
+    clearTimeout(flo._hide);
+    flo._hide = setTimeout(() => flo.classList.add("hidden"), 500);
+  }
   const el = $("works-toast");
   el.textContent = text || "";
   el.classList.remove("hidden");
@@ -287,11 +308,12 @@ socket.on("joined", ({ you }) => {
 
 $("join-form").addEventListener("submit", (e) => {
   e.preventDefault();
+  const codeEl = $("code");
   socket.emit("join", {
     name: $("name").value.trim(),
     character: $("character").value.trim() || $("name").value.trim(),
     cls: $("cls").value.trim(),
-    code: $("code").value.trim(),
+    code: codeEl ? codeEl.value.trim() : "",
   });
 });
 
@@ -321,6 +343,12 @@ $("toggle-panel").addEventListener("click", () => {
 
 $("open-works").addEventListener("click", () => $("works").classList.remove("hidden"));
 $("close-works").addEventListener("click", () => $("works").classList.add("hidden"));
+$("tab-forest").addEventListener("click", () => { store.plot = "forest"; paintWorks(store.works); });
+$("tab-mine").addEventListener("click", () => { store.plot = "mine"; paintWorks(store.works); });
+$("plot-hit").addEventListener("click", () => {
+  if (!store.you) return;
+  socket.emit("works_chop", { ...store.you, plot: store.plot || "forest" });
+});
 $("open-seated").addEventListener("click", () => $("seated").classList.remove("hidden"));
 $("close-seated").addEventListener("click", () => $("seated").classList.add("hidden"));
 $("open-rolls").addEventListener("click", () => $("rolls").classList.remove("hidden"));
